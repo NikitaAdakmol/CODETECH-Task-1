@@ -1,0 +1,109 @@
+#LIBRARY MANAGEMENT SYSTEM
+
+Create database LMS;
+use LMS;
+#Books Table
+CREATE TABLE books (
+    book_id INT PRIMARY KEY AUTO_INCREMENT,   -- Unique book identifier
+    title VARCHAR(255) NOT NULL,              -- Title of the book
+    author VARCHAR(255) NOT NULL,             -- Author of the book
+    isbn VARCHAR(13),                         -- ISBN number (optional)
+    genre VARCHAR(100),                       -- Genre of the book
+    publish_date DATE,                        -- Publication date
+    available_copies INT DEFAULT 0           -- Number of available copies
+);
+select * from books;
+
+#Members Table:
+CREATE TABLE members (
+    member_id INT PRIMARY KEY AUTO_INCREMENT,  -- Unique member identifier
+    name VARCHAR(255) NOT NULL,                -- Name of the member
+    email VARCHAR(100) UNIQUE NOT NULL,        -- Member's email (unique)
+    phone_number VARCHAR(15),                  -- Phone number (optional)
+    address TEXT,                              -- Address (optional)
+    membership_date DATE NOT NULL              -- Date the member registered
+);
+select * from members;
+
+#Transactions Table:
+CREATE TABLE transactions (
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,  -- Unique transaction identifier
+    member_id INT,                                  -- Foreign key referring to the member
+    book_id INT,                                    -- Foreign key referring to the book
+    borrow_date DATE NOT NULL,                      -- Date the book was borrowed
+    return_date DATE,                               -- Date the book was returned (nullable)
+    due_date DATE NOT NULL,                         -- Date the book is due for return
+    fine DECIMAL(10, 2) DEFAULT 0.00,               -- Fine incurred (if any)
+    status ENUM('borrowed', 'returned') NOT NULL,   -- Status of the book in transaction
+    FOREIGN KEY (member_id) REFERENCES members(member_id),
+    FOREIGN KEY (book_id) REFERENCES books(book_id)
+);
+select * from transactions;
+
+#INSERT DATA
+#insert a New Book:
+INSERT INTO books (title, author, isbn, genre, publish_date, available_copies)
+VALUES ('The Great Gatsby', 'F. Scott Fitzgerald', '9780743273565', 'Fiction', '1925-04-10', 5);
+
+#Insert a New Member:
+INSERT INTO members (name, email, phone_number, address, membership_date)
+VALUES ('John Doe', 'johndoe@example.com', '123-456-7890', '123 Main St, City, Country', '2024-01-01');
+
+#Record a Transaction (Book Borrowed):
+INSERT INTO transactions (member_id, book_id, borrow_date, due_date, status)
+VALUES (1, 1, '2024-12-30', '2024-01-13', 'borrowed');
+
+# Update Data
+#Update Available Copies of a Book:
+UPDATE books
+SET available_copies = available_copies - 1
+WHERE book_id = 1;
+
+#Mark a Book as Returned:
+UPDATE transactions
+SET return_date = '2024-01-05', status = 'returned'
+WHERE transaction_id = 1;
+
+#Delete Data
+#Delete a Transaction (e.g., remove record after a return):
+DELETE FROM transactions
+WHERE transaction_id = 1;
+
+#Delete a Book (Only if no transactions are linked to it):
+DELETE FROM books
+WHERE book_id = 1 AND available_copies = 0;
+
+SELECT * FROM books;
+
+#Get All Books Borrowed by a Specific Member:
+SELECT b.title, t.borrow_date, t.due_date, t.return_date
+FROM transactions t
+JOIN books b ON t.book_id = b.book_id
+WHERE t.member_id = 1;
+
+#Get Overdue Books (Books that have passed the due date and haven't been returned):
+SELECT b.title, m.name, t.due_date
+FROM transactions t
+JOIN books b ON t.book_id = b.book_id
+JOIN members m ON t.member_id = m.member_id
+WHERE t.status = 'borrowed' AND t.due_date < CURDATE();
+
+#Get Transaction History for a Member:
+SELECT b.title, t.borrow_date, t.due_date, t.return_date, t.fine
+FROM transactions t
+JOIN books b ON t.book_id = b.book_id
+WHERE t.member_id = 1;
+
+#Get Books with Available Copies Greater Than Zero:
+SELECT * FROM books
+WHERE available_copies > 0;
+
+UPDATE transactions
+SET fine = DATEDIFF(CURDATE(), due_date) * 1
+WHERE status = 'borrowed' AND due_date < CURDATE();
+
+SELECT m.name, SUM(t.fine) AS total_fine
+FROM transactions t
+JOIN members m ON t.member_id = m.member_id
+WHERE t.fine > 0
+GROUP BY m.member_id;
